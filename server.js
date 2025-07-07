@@ -1,16 +1,13 @@
 const express = require('express');
-const jwt = require('jsonwebtoken'); // For JWT
+const jwt = require('jsonwebtoken'); 
 const app = express();
 const PORT = 5000;
 
 app.use(express.json());
 
-// Secret key for JWT
+
 const JWT_SECRET = 'adaptNXT_secret_key';
 
-// ----------------- DUMMY DATA -----------------
-
-// Dummy users
 const users = [
   { id: 1, username: 'admin', password: 'admin123', role: 'admin' },
   { id: 2, username: 'customer', password: 'cust123', role: 'customer' }
@@ -26,13 +23,11 @@ let products = [
   { id: 6, name: "Monitor", price: 12000 }
 ];
 
-// Carts: { userId: [{ productId, quantity }] }
+
 const carts = {};
 
-// Orders: [{ orderId, userId, items, total, date }]
 const orders = [];
 
-// ----------------- AUTHENTICATION -----------------
 
 // Login API
 app.post('/login', (req, res) => {
@@ -58,12 +53,11 @@ function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Invalid or expired token' });
-    req.user = user; // Add user data to request
+    req.user = user; 
     next();
   });
 }
 
-// Middleware: Check if user is Admin
 function isAdmin(req, res, next) {
   if (req.user.role === 'admin') next();
   else res.status(403).json({ message: 'Admin access only' });
@@ -71,10 +65,9 @@ function isAdmin(req, res, next) {
 
 // ----------------- ROOT ROUTE -----------------
 app.get('/', (req, res) => {
-  res.send('Welcome to AdaptNXT E-commerce API 🚀');
+  res.send('Welcome to AdaptNXT E-commerce API ');
 });
 
-// ----------------- PRODUCTS API -----------------
 
 // Get all products (Customer & Admin)
 app.get('/products', authenticate, (req, res) => {
@@ -125,7 +118,7 @@ app.delete('/products/:id', authenticate, isAdmin, (req, res) => {
   res.json({ message: 'Product deleted' });
 });
 
-// ----------------- CART API (Customer only) -----------------
+
 
 // Get user's cart
 app.get('/cart', authenticate, (req, res) => {
@@ -185,7 +178,7 @@ app.delete('/cart/:productId', authenticate, (req, res) => {
   res.json({ message: 'Item removed', cart: carts[userId] });
 });
 
-// ----------------- ORDERS API (Customer only) -----------------
+
 
 // Place an order
 app.post('/orders', authenticate, (req, res) => {
@@ -220,7 +213,7 @@ app.get('/orders', authenticate, (req, res) => {
   res.json(userOrders);
 });
 
-// ----------------- START SERVER -----------------
+
 app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
