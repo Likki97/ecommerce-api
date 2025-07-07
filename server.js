@@ -5,7 +5,6 @@ const PORT = 5000;
 
 app.use(express.json());
 
-
 const JWT_SECRET = 'adaptNXT_secret_key';
 
 const users = [
@@ -23,20 +22,16 @@ let products = [
   { id: 6, name: "Monitor", price: 12000 }
 ];
 
-
 const carts = {};
-
 const orders = [];
 
-
-// Login API
+// --------------------- LOGIN ---------------------
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   const user = users.find(u => u.username === username && u.password === password);
   if (!user) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
-  // Generate JWT Token
   const token = jwt.sign(
     { userId: user.id, username: user.username, role: user.role },
     JWT_SECRET,
@@ -45,7 +40,7 @@ app.post('/login', (req, res) => {
   res.json({ message: 'Login successful', token });
 });
 
-// Middleware: Verify JWT Token
+// --------------------- MIDDLEWARES ---------------------
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: 'Authorization header missing' });
@@ -53,7 +48,7 @@ function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Invalid or expired token' });
-    req.user = user; 
+    req.user = user;
     next();
   });
 }
@@ -63,14 +58,15 @@ function isAdmin(req, res, next) {
   else res.status(403).json({ message: 'Admin access only' });
 }
 
-// ----------------- ROOT ROUTE -----------------
+// --------------------- ROOT ---------------------
 app.get('/', (req, res) => {
-  res.send('Welcome to AdaptNXT E-commerce API ');
+  res.send('Welcome to AdaptNXT E-commerce API');
 });
 
+// --------------------- PRODUCTS ---------------------
 
-// Get all products (Customer & Admin)
-app.get('/products', authenticate, (req, res) => {
+// Public: Get all products (No JWT needed)
+app.get('/products', (req, res) => {
   const { page = 1, limit = 5, search = '' } = req.query;
 
   const filtered = products.filter(p =>
@@ -89,38 +85,42 @@ app.get('/products', authenticate, (req, res) => {
   });
 });
 
-// Add product (Admin only)
+// Admin only: Add a product
 app.post('/products', authenticate, isAdmin, (req, res) => {
   const { name, price } = req.body;
+  if (!name || !price) {
+    return res.status(400).json({ message: 'Name and price are required' });
+  }
   const newProduct = { id: products.length + 1, name, price };
   products.push(newProduct);
   res.status(201).json({ message: 'Product added', product: newProduct });
 });
 
-// Update product (Admin only)
+// Admin only: Update a product
 app.put('/products/:id', authenticate, isAdmin, (req, res) => {
   const { id } = req.params;
   const { name, price } = req.body;
   const product = products.find(p => p.id == id);
-  if (product) {
-    product.name = name || product.name;
-    product.price = price || product.price;
-    res.json({ message: 'Product updated', product });
-  } else {
-    res.status(404).json({ message: 'Product not found' });
+  if (!product) {
+    return res.status(404).json({ message: 'Product not found' });
   }
+  if (name) product.name = name;
+  if (price) product.price = price;
+  res.json({ message: 'Product updated', product });
 });
 
-// Delete product (Admin only)
+// Admin only: Delete a product
 app.delete('/products/:id', authenticate, isAdmin, (req, res) => {
   const { id } = req.params;
-  products = products.filter(p => p.id != id);
+  const index = products.findIndex(p => p.id == id);
+  if (index === -1) {
+    return res.status(404).json({ message: 'Product not found' });
+  }
+  products.splice(index, 1);
   res.json({ message: 'Product deleted' });
 });
 
-
-
-// Get user's cart
+// --------------------- CART ---------------------
 app.get('/cart', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
@@ -128,7 +128,6 @@ app.get('/cart', authenticate, (req, res) => {
   res.json(cart);
 });
 
-// Add item to cart
 app.post('/cart', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
@@ -147,7 +146,6 @@ app.post('/cart', authenticate, (req, res) => {
   res.status(201).json({ message: 'Item added to cart', cart: carts[userId] });
 });
 
-// Update cart item
 app.put('/cart', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
@@ -157,15 +155,12 @@ app.put('/cart', authenticate, (req, res) => {
   if (!cart) return res.status(404).json({ message: 'Cart not found' });
 
   const cartItem = cart.find(item => item.productId === productId);
-  if (cartItem) {
-    cartItem.quantity = quantity;
-    res.json({ message: 'Cart updated', cart });
-  } else {
-    res.status(404).json({ message: 'Product not in cart' });
-  }
+  if (!cartItem) return res.status(404).json({ message: 'Product not in cart' });
+
+  cartItem.quantity = quantity;
+  res.json({ message: 'Cart updated', cart });
 });
 
-// Remove item from cart
 app.delete('/cart/:productId', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
@@ -178,9 +173,7 @@ app.delete('/cart/:productId', authenticate, (req, res) => {
   res.json({ message: 'Item removed', cart: carts[userId] });
 });
 
-
-
-// Place an order
+// --------------------- ORDERS ---------------------
 app.post('/orders', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
@@ -205,14 +198,12 @@ app.post('/orders', authenticate, (req, res) => {
   res.status(201).json({ message: 'Order placed successfully', order: newOrder });
 });
 
-// Get user orders
 app.get('/orders', authenticate, (req, res) => {
   if (req.user.role !== 'customer') return res.status(403).json({ message: 'Customer access only' });
   const userId = req.user.userId;
   const userOrders = orders.filter(o => o.userId === userId);
   res.json(userOrders);
 });
-
 
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
